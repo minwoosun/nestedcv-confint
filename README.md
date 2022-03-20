@@ -1,3 +1,3 @@
-# cox_nestedcv
+# Survival Nested CV
 
-The simulation exeriments in the paper can be found in https://github.com/solarmin/cox_nestedcv_experiments
+arXiv preprint: https://arxiv.org/abs/2201.10770
