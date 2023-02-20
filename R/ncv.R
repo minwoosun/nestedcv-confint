@@ -1,61 +1,116 @@
-ncv = function(x,y,lamhat,nfolds=10,nreps=5,mc.cores=4){
+library(glmnet)
+library(survival)
+library(groupdata2)
+library(doMC)
+# registerDoMC(cores = 32)
 
-  raw<- parallel::mclapply(1:nreps, function(i){ncv.helper(x, y, nfolds=nfolds,lamhat=lamhat)}, mc.cores = mc.cores)
-  errin=errcv0=errout=errout.var=NULL
-
+#' Repeated nested cross-validation function
+#' Runs ncv_single() nreps times
+#' old name: ncv
+#' 
+#' @param x data matrix
+#' @param y target variable
+#' @param lamhat 
+#' @param nfolds number of folds for cross-validation
+#' @param nreps number of repetitions (randomly sample x, y and run ncv)
+#' @param mc.cores number of cores to use for parallel compute
+ncv_repeated = function(x, y, lamhat, nfolds=10, nreps=5, mc.cores=4){
+  
+  # run ncv in parallel (nreps times)
+  raw <- parallel::mclapply(1:nreps, 
+                            function(i){ncv_one_iteration(x, y, nfolds = nfolds, lamhat = lamhat)}, 
+                            mc.cores = mc.cores)
+  
+  # initialize output vectors
+  errin = errcv0 = errout = errout.var = NULL
+  
+  # unpack output into vectors
   for(i in 1:nreps){
-    errin=c(errin,raw[[i]]$errin)
-    errcv0=c(errcv0,raw[[i]]$errcv0)
-    errout=c(errout,raw[[i]]$errout)
-    errout.var=c(errout.var,raw[[i]]$errout.var)
-
+    errin <- c(errin, raw[[i]]$errin)
+    errcv0 <- c(errcv0, raw[[i]]$errcv0)
+    errout <- c(errout, raw[[i]]$errout)
+    errout.var <- c(errout.var, raw[[i]]$errout.var)
   }
-
-  return(list(errin=errin,errcv0=errcv0,errout=errout,errout.var=errout.var))
+  
+  # pack output vectors into a single list
+  outlist <- list(errin = errin,
+                  errcv0 = errcv0,
+                  errout = errout,
+                  errout.var = errout.var)
+  
+  return(outlist)
 }
 
 
-ncv.helper = function(x,y,lamhat,nfolds=10){
+#' Core nested cross-validation function
+#' old name: ncv.helper
+#' 
+#' @param x data matrix
+#' @param y target variable
+#' @param lamhat 
+#' @param nfolds number of folds for cross-validation
+ncv_single = function(x, y, lamhat, nfolds=10){
+  
+  # initialize output vectors
+  errin = errout = errout.var = rep(NA,nfolds)
 
-  errin=errout=errout.var=rep(NA,nfolds)
-
-  # balance folds
+  # balance folds (balanced target)
   y_df <- data.frame(y)
   y_splitted <- fold(y_df, k=nfolds, method="n_rand", cat_col="status")
-  fold_id <- y_splitted$.folds %>% as.character %>% as.integer()
-
-  # fold_id = sample(rep(seq(nfolds), length = nrow(x)))
-
-  outcv0=cv.glmnet(x,y,family="cox",standardize=F,foldid=fold_id,type.measure="C",parallel=TRUE,lambda=c(lamhat,0))
-  errcv0=outcv0$cvm[1]
-
+  fold_id <- as.integer(as.character(y_splitted$.folds))
+  
+  # run k-fold cross-validation
+  outcv0 <- cv.glmnet(x, 
+                      y, 
+                      family = "cox", 
+                      standardize = FALSE, 
+                      foldid = fold_id, 
+                      type.measure = "C", 
+                      parallel = TRUE, 
+                      lambda = c(lamhat, 0))
+  
+  # error corresponding to lamhat model
+  errcv0 <- outcv0$cvm[1]
+  
+  # run nested cross- validation
   for(ii in 1:nfolds){
     cat(ii)
-    out=which(fold_id==ii)
-    xx=x[-out,]
-    yy=y[-out,]
-    new.foldid=fold_id[-out]
-    new.foldid[new.foldid>ii]=new.foldid[new.foldid>ii]-1 #map back to 1...(nfolds-1)
-
-    outcv=cv.glmnet(xx,yy,family="cox",standardize=F,foldid=new.foldid,type.measure="C",parallel=TRUE,lambda=c(lamhat,0))
+    out <- which(fold_id==ii)
+    xx <- x[-out,]
+    yy <- y[-out,]
+    new.foldid <- fold_id[-out]
+    new.foldid[new.foldid>ii] <- new.foldid[new.foldid > ii] - 1 #map back to 1...(nfolds-1)
+    
+    # run k-fold cross-validation
+    outcv <- cv.glmnet(xx,
+                       yy,
+                       family="cox",
+                       standardize=F,
+                       foldid=new.foldid,
+                       type.measure="C",
+                       parallel=TRUE,
+                       lambda=c(lamhat, 0))
+    
+    # error corresponding to lamhat model
     errin[ii]=outcv$cvm[1]
 
     bhat=as.vector(coef(outcv,s=outcv$lambda[1]))
     #   df=data.frame(tim=yy[,1],status=yy[,2],x=I(xx))
-    xx = xx %>% data.frame
-    yy = yy %>% data.frame
+    xx = data.frame(xx)
+    yy = data.frame(yy)
     df = cbind(yy, xx)
     #colnames(df)[c(1,2)] = c('status', 'time') # <- problem order will matter
 
 
-    fit=coxph(Surv(time,status)~.,data=df,init=bhat,control=coxph.control(iter.max=0))
+    fit <- coxph(Surv(time,status)~.,data=df,init=bhat,control=coxph.control(iter.max=0))
     # dfout=data.frame(x=I(x[out,]),tim=y[out,1],status=y[out,2])
-    dfout = cbind(data.frame(y)[out,], data.frame(x)[out,])
+    dfout <- cbind(data.frame(y)[out,], data.frame(x)[out,])
 
     concord <- concordance(fit, newdata=dfout)
-    errout[ii]=concord$concordance
-    errout.var[ii]=concord$var
+    errout[ii] <- concord$concordance
+    errout.var[ii] <- concord$var
   }
 
-  return(list(errin=errin,errout=errout,errout.var=errout.var,errcv0=errcv0))
+  outlist <- list(errin=errin,errout=errout,errout.var=errout.var,errcv0=errcv0)
+  return(outlist)
 }
