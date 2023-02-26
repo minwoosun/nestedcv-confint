@@ -3,12 +3,14 @@ library(dplyr)
 library(glmnet)
 library(survival)
 library(groupdata2)
-require(doMC)
-registerDoMC(cores = 32)
-source("/home/users/minwoos/projects/ncv/code/ncv.R")
-source("/home/users/minwoos/projects/ncv/code/experiment.R")
-outdir = "/scratch/users/minwoos/ncv/output/"
-jobname = "ngtp_n100_sigma10_nrep400_2"
+library(here)
+#require(doMC)
+#registerDoMC(cores = 32)
+source(here::here("R/ncv.R"))
+source(here::here("R/experiment.R"))
+
+#outdir = "/scratch/users/minwoos/ncv/output/"
+#jobname = "ngtp_n100_sigma10_nrep400_2"
 run=T
 if (run==T){
   n=100
@@ -21,7 +23,7 @@ if (run==T){
   nsim=100
   nreps=400
   nfolds=10
-  mc.cores=32
+  mc.cores=1
   result_base = experiment_simulation_base(n=n,
                                            p=p,
                                            alpha=alpha,
@@ -46,4 +48,5 @@ if (run==T){
                            nfolds,
                            mc.cores)
 }
-save(result_base, file=paste0(outdir,jobname,".RData"))
+
+# save(result_base, file=paste0(outdir,jobname,".RData"))

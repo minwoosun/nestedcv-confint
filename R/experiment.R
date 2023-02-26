@@ -18,9 +18,7 @@ experiment_simulation_base <- function(n, p, ntest, beta, sigma, nsim, nreps=10,
 
   for(ii in 1:nsim){
 
-    if(verbose){
-      print(paste("############ Sim: ", ii,"############"))
-    }
+    if(verbose){print(paste("[Sim: ", ii,"]"))}
 
     # generate train data
     data_train <- generate_sim_data(n=n, p=p, beta=beta, sigma=sigma)
@@ -32,19 +30,20 @@ experiment_simulation_base <- function(n, p, ntest, beta, sigma, nsim, nreps=10,
     y_test <- data_test[[2]]
 
     # temp=coxph(formula = Surv(time, status) ~ x) #just for info on the signal strength
-
     fold_id <- sample(rep(1:nfolds,n/nfolds))
-
+    
+    # run standard cross-validation
     outcv <- cv.glmnet(x_train,y_train,family="cox",standardize=F,foldid=fold_id,type.measure="C",keep=T)
     errcv[ii] <- max(outcv$cvm)
     err[ii] <- assess.glmnet(outcv,newx=x_test,newy=y_test,s=outcv$lambda.min)$C
     lamhat <- outcv$lambda.min
     sd[ii] <- outcv$cvsd[which.max(outcv$cvm)]
-
-    outncv[[ii]] <- ncv(x_train,y_train,lamhat,nreps=nreps,nfolds=nfolds, mc.cores=mc.cores)
-    sd.ncv[ii] <- sqrt(mean((outncv[[ii]]$errin-outncv[[ii]]$errout)^2)-mean(outncv[[ii]]$errout.var))
-    sd.ncva[ii] <- mean((outncv[[ii]]$errin-outncv[[ii]]$errout)^2)
-    sd.ncvb[ii] <- mean(outncv[[ii]]$errout.var)
+    
+    # run nested cross-validation
+    outncv[[ii]] <- ncv_repeated(x_train, y_train ,lamhat,nreps=nreps,nfolds=nfolds, mc.cores=mc.cores)
+    sd.ncv[ii] <- sqrt(mean((outncv[[ii]]$errin-outncv[[ii]]$errout)^2)-mean(outncv[[ii]]$errout.var))  # sqrt(a-b)
+    sd.ncva[ii] <- mean((outncv[[ii]]$errin-outncv[[ii]]$errout)^2)  # a
+    sd.ncvb[ii] <- mean(outncv[[ii]]$errout.var)  # b
   }
 
   list(err, errcv, sd, sd.ncv, outncv, sd.ncva, sd.ncvb)
@@ -108,4 +107,11 @@ experiment_real <- function(x, y, nsim, ntrain, nreps=10, nfolds=10, alpha=0.10,
   }
 
   list(err, errcv, sd, sd.ncv, outncv, sd.ncva, sd.ncvb)
+}
+
+
+process_result <- function(){
+  
+  
+  
 }
