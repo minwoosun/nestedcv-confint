@@ -1,6 +1,6 @@
 library(glmnet)
 library(survival)
-# library(groupdata2)
+library(groupdata2)
 library(doMC)
 
 
@@ -18,7 +18,7 @@ ncv_single = function(x, y, lamhat, nfolds=10, verbose=FALSE){
 
   # balance folds (balanced target)
   y_df <- data.frame(y)
-  y_splitted <- fold(y_df, k=nfolds, method="n_rand", cat_col="status")
+  y_splitted <- groupdata2::fold(y_df, k=nfolds, method="n_rand", cat_col="status")
   fold_id <- as.integer(as.character(y_splitted$.folds))
   
   # run nested cross-validation

@@ -16,7 +16,7 @@ BETA = c(rep(2, 4), rep(0, P-4))
 STATUS_TRAIN = rep(1, N_TRAIN)
 STATUS_TEST = rep(1, N_TEST)
 ALPHA = 0.10
-MC_CORES = 3
+MC_CORES = 1
 # OUTPUT_DIR
 
 #####################################
