@@ -21,67 +21,69 @@ ncv_single = function(x, y, lamhat, nfolds=10){
   y_splitted <- fold(y_df, k=nfolds, method="n_rand", cat_col="status")
   fold_id <- as.integer(as.character(y_splitted$.folds))
   
-  # run k-fold cross-validation
-  outcv0 <- cv.glmnet(x, 
-                      y, 
-                      family = "cox", 
-                      standardize = FALSE, 
-                      foldid = fold_id, 
-                      type.measure = "C", 
-                      parallel = TRUE, 
-                      lambda = c(lamhat, 0))
-  
-  # error corresponding to lamhat model
-  errcv0 <- outcv0$cvm[1]
-  
-  # run nested cross- validation
+  # run nested cross-validation
   for(ii in 1:nfolds){
     
     cat(paste0(ii, "."))
     
     # define holdout fold indices
-    index.out <- which(fold_id==ii)
+    index.out <- which(fold_id == ii)
     xx <- x[-index.out,]
     yy <- y[-index.out,]
     new.foldid <- fold_id[-index.out]
     
-    # map back to 1...(nfolds-1)
-    new.foldid[new.foldid>ii] <- new.foldid[new.foldid > ii] - 1 
+    # map back to 1, ..., (nfolds-1)
+    new.foldid[new.foldid > ii] <- new.foldid[new.foldid > ii] - 1 
     
     # run k-fold cross-validation
     outcv <- cv.glmnet(xx,
                        yy,
-                       family="cox",
-                       standardize=F,
-                       foldid=new.foldid,
-                       type.measure="C",
-                       parallel=TRUE,
-                       lambda=c(lamhat, 0))
+                       family = "cox",
+                       standardize = F,
+                       foldid = new.foldid,
+                       type.measure = "C",
+                       parallel = TRUE,
+                       lambda = c(lamhat, 0)
+                       )
     
     # error corresponding to lamhat model
     errin[ii] <- outcv$cvm[1]
-
-    bhat <- as.vector(coef(outcv,s=outcv$lambda[1]))
+    
+    # what is the purpose of this?
+    bhat <- as.vector(coef(outcv, s = outcv$lambda[1]))
     xx <- data.frame(xx)
     yy <- data.frame(yy)
     df <- cbind(yy, xx)
     #colnames(df)[c(1,2)] = c('status', 'time') # <- problem order will matter
-
-    fit <- coxph(Surv(time,status)~.,data=df,init=bhat,control=coxph.control(iter.max=0))
-    dfout <- cbind(data.frame(y)[index.out,], data.frame(x)[index.out,])
-
-    concord <- concordance(fit, newdata=dfout)
+    
+    # fit a cox model using training data (replace simple lin alg representation?)
+    fit <- coxph(Surv(time,status)~.,
+                 data = df,
+                 init = bhat,
+                 control = coxph.control(iter.max = 0)
+                 )
+    
+    # compute c-index on holdout fold using train cox model
+    df_holdout_fold <- cbind(data.frame(y)[index.out,], 
+                             data.frame(x)[index.out,]
+                             )
+    
+    concord <- concordance(fit, newdata = df_holdout_fold)
     errout[ii] <- concord$concordance
     errout.var[ii] <- concord$var
   }
 
-  outlist <- list(errin=errin,errout=errout,errout.var=errout.var,errcv0=errcv0)
+  outlist <- list(errin = errin,
+                  errout = errout,
+                  errout.var = errout.var
+                  )
+  
   return(outlist)
 }
 
 
 #' Repeated nested cross-validation function
-#' Runs ncv_single() nreps times
+#' Runs ncv_single() nreps times after reassigning data to new folds
 #' old name: ncv
 #' 
 #' @param x data matrix
@@ -93,24 +95,23 @@ ncv_single = function(x, y, lamhat, nfolds=10){
 ncv_repeated = function(x, y, lamhat, nfolds = 10, nreps = 5, mc.cores){
   
   # run ncv in parallel (nreps times)
-  raw <- parallel::mclapply(1:nreps, 
-                            function(i){ncv_single(x, y, nfolds = nfolds, lamhat = lamhat)}, 
-                            mc.cores = mc.cores)
+  ncv_output <- parallel::mclapply(1:nreps, 
+                function(i){ncv_single(x, y, nfolds = nfolds, lamhat = lamhat)}, 
+                mc.cores = mc.cores
+                )
   
   # initialize output vectors
-  errin = errcv0 = errout = errout.var = NULL
+  errin = errout = errout.var = NULL
   
   # unpack output into vectors
   for(i in 1:nreps){
-    errin <- c(errin, raw[[i]]$errin)
-    errcv0 <- c(errcv0, raw[[i]]$errcv0)
-    errout <- c(errout, raw[[i]]$errout)
-    errout.var <- c(errout.var, raw[[i]]$errout.var)
+    errin <- c(errin, ncv_output[[i]]$errin)
+    errout <- c(errout, ncv_output[[i]]$errout)
+    errout.var <- c(errout.var, ncv_output[[i]]$errout.var)
   }
   
   # pack output vectors into a single list
   outlist <- list(errin = errin,
-                  errcv0 = errcv0,
                   errout = errout,
                   errout.var = errout.var)
   
