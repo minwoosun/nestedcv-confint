@@ -42,6 +42,25 @@ simulate_data_base_case_nsim <- function(nsim, n, p, sigma, beta, status){
 }
 
 
+#' Get signal-to-noise ratio from simulated data.
+#' Should expect n_sim SNR values
+#' 
+#' @param data list of data (x, y, snr) from 
+#'             simulate_data_base_case_nsim()
+#' @param nsim number of simulations
+#' 
+check_snr <- function(data, n_sim){
+  
+  snr <- c()
+  for (i in 1:n_sim){
+    snr[i] <- unlist(data[[i]]["snr"])
+  }
+  
+  return(snr)
+}
+
+
+
 #' #' Use to generate simulated data where the
 #' #' survival time follows a weibull distribution
 #' #' 
@@ -67,22 +86,20 @@ simulate_data_base_case_nsim <- function(nsim, n, p, sigma, beta, status){
 #'   
 #'   return(list(x=x, y=y, snr=snr))
 #' }
-#' 
-#' 
-#' 
-#' 
-#' 
-#' #' Use to sample without replacement from real data
-#' #' where we can't generate new data
-#' #' 
-#' sample_data <- function(){
-#'   
-#' }
-#' 
-#' 
-#' split_train_test <- function(data, ntrain){
-#'   
-#' }
+
+
+
+#' Use to sample without replacement from real data
+#' where we can't generate new data
+#'
+sample_data <- function(){
+
+}
+
+
+split_train_test <- function(data, ntrain){
+
+}
 
 
 #' Simulates running vanilla cross-validation and
@@ -154,7 +171,7 @@ simulation <- function(data_train, data_test, nsim, nreps=10, nfolds=10, alpha=0
     ###################################
     #   run nested cross-validation   #
     ###################################
-    outncv <- ncv_repeated(x_train,   #don't need to keep track of outncv
+    outncv <- ncv_repeated(x_train,
                            y_train,
                            lamhat, # from standard cv
                            nreps=nreps,
@@ -166,7 +183,7 @@ simulation <- function(data_train, data_test, nsim, nreps=10, nfolds=10, alpha=0
     mse_a <- mean((outncv$errin - outncv$errout)^2)
     mse_b <- mean(outncv$errout.var)
     mse <- mse_a - mse_b
-    mse_sqrt <- sqrt(mse)   # get NaN when mse_a < mse_b
+    mse_sqrt <- sqrt(mse) # get NaN when mse_a < mse_b
     
     # store ncv output
     err_ncv[ii] <- mean(outncv$errin)
@@ -175,38 +192,67 @@ simulation <- function(data_train, data_test, nsim, nreps=10, nfolds=10, alpha=0
   }
   
   # final output list
-  outlist <- list(err_test=err_test, 
-                  err_cv=err_cv, 
-                  err_ncv=err_ncv, 
-                  sd_cv=sd_cv, 
-                  sd_ncv=sd_ncv, 
-                  mse_ncv=mse_ncv, 
-                  simulation_params=simulation_params)
+  outlist <- list(err_test = as.vector(unlist(err_test)), 
+                  err_cv = as.vector(unlist(err_cv)), 
+                  err_ncv = as.vector(unlist(err_ncv)), 
+                  sd_cv = as.vector(unlist(sd_cv)), 
+                  sd_ncv = as.vector(unlist(sd_ncv)), 
+                  mse_ncv = as.vector(unlist(mse_ncv)), 
+                  simulation_params = simulation_params)
   
   return(outlist)
 }
 
 
+#' Take output from simulate() and organize into a dataframe
+#' 
+#' @param result list of results from simulate()
+#' @param na.rm TRUE remove rows with NaN
+create_result_dataframe <- function(result, na.rm){
+  
+  err_test <- result[["err_test"]]
+  err_cv <- result[["err_cv"]]
+  err_ncv <- result[["err_ncv"]]
+  sd_cv <- result[["sd_cv"]]
+  sd_ncv <- result[["sd_ncv"]]
+  
+  df <- data.frame(cbind(err_test, err_cv, err_ncv, sd_cv, sd_ncv))
+  colnames(df) <- c("err_test", "err_cv", "err_ncv", "sd_cv", "sd_ncv")
+  
+  if (na.rm){
+    df <- df[complete.cases(df),]
+  }
+  
+  return(df)
+}
 
 
+#' Compute confidence intervals for standard cross-validation output
+#' 
+#' @param err_cv
+#' @param sd_cv
+#' @param alpha desired miscoverage (1-alpha is desired conf int)
+#' @param nsim
+#' @param nfold number of folds
+#' @param na.rm TRUE remove rows with NaN
+confidence_interval_cv <- function(err_cv, sd_cv, alpha, nsim, nfold){
+  z <- qnorm(1-alpha/2)
+  df <- data.frame(cbind(err_cv-z*sd_cv, err_cv+z*sd_cv))
+  colnames(df) <- c("lo", "up")
+  return(df)
+}
 
 
-source(here::here("R/ncv.R"))
-registerDoMC(cores = 3)
+#' Compute confidence intervals for standard cross-validation output
+#' 
+#' @param confidence_intervals
+#' @param test_err
+check_miscoverage <- function(confidence_intervals, test_err){
+  
+  lower_bound_miscoverage <- mean(test_err < confidence_intervals["lo"])
+  upper_bound_miscoverage <- mean(test_err > confidence_intervals["up"])
+  miscoverage <- c(lower_bound_miscoverage, upper_bound_miscoverage)
+  
+  return(miscoverage)
+}
 
-set.seed(123)
-
-N_SIM=10
-N_TRAIN=100
-N_TEST=1000
-P=10
-SIGMA=3
-BETA = c(rep(2,4),rep(0,P-4))
-STATUS_TRAIN = rep(1,N_TRAIN)
-STATUS_TEST = rep(1,N_TEST)
-MC_CORES = 3
-
-data_train <- simulate_data_base_case_nsim(nsim=N_SIM, n=N_TRAIN, p=P, sigma=SIGMA, beta=BETA, status=STATUS_TRAIN)
-data_test <- simulate_data_base_case_nsim(nsim=N_SIM, n=N_TEST, p=P, sigma=SIGMA, beta=BETA, status=STATUS_TEST)
-
-simulation_test <- simulation(data_train, data_test, nsim=N_SIM, nreps=400, nfolds=10, alpha=0.10, verbose=T, mc.cores=MC_CORES)

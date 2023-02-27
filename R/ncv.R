@@ -1,6 +1,6 @@
 library(glmnet)
 library(survival)
-library(groupdata2)
+# library(groupdata2)
 library(doMC)
 
 
@@ -11,7 +11,7 @@ library(doMC)
 #' @param y target variable
 #' @param lamhat 
 #' @param nfolds number of folds for cross-validation
-ncv_single = function(x, y, lamhat, nfolds=10){
+ncv_single = function(x, y, lamhat, nfolds=10, verbose=FALSE){
   
   # initialize output vectors
   errin = errout = errout.var = rep(NA, nfolds)
@@ -24,7 +24,7 @@ ncv_single = function(x, y, lamhat, nfolds=10){
   # run nested cross-validation
   for(ii in 1:nfolds){
     
-    cat(paste0(ii, "."))
+    if(verbose){cat(paste0(ii, "."))}
     
     # define holdout fold indices
     index.out <- which(fold_id == ii)
@@ -35,7 +35,7 @@ ncv_single = function(x, y, lamhat, nfolds=10){
     # map back to 1, ..., (nfolds-1)
     new.foldid[new.foldid > ii] <- new.foldid[new.foldid > ii] - 1 
     
-    # run k-fold cross-validation
+    # run standard k-fold cross-validation on inner folds
     outcv <- cv.glmnet(xx,
                        yy,
                        family = "cox",
@@ -92,11 +92,11 @@ ncv_single = function(x, y, lamhat, nfolds=10){
 #' @param nfolds number of folds for cross-validation
 #' @param nreps number of repetitions (randomly sample x, y and run ncv)
 #' @param mc.cores number of cores to use for parallel compute
-ncv_repeated = function(x, y, lamhat, nfolds = 10, nreps = 5, mc.cores){
+ncv_repeated = function(x, y, lamhat, nfolds = 10, nreps = 5, mc.cores, verbose=FALSE){
   
   # run ncv in parallel (nreps times)
   ncv_output <- parallel::mclapply(1:nreps, 
-                function(i){ncv_single(x, y, nfolds = nfolds, lamhat = lamhat)}, 
+                function(i){ncv_single(x, y, nfolds = nfolds, lamhat = lamhat, verbose)}, 
                 mc.cores = mc.cores
                 )
   
