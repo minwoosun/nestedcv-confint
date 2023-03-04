@@ -7,7 +7,7 @@ source(here::here("R/simulation.R"))
 # simulation parameters
 RUN_SIMULATION <- TRUE
 SIMULATION_SEED <- 123
-N_SIM <- 5
+N_SIM <- 3
 ALPHA <- 0.10
 MC_CORES <- 3
 
@@ -24,19 +24,22 @@ STATUS_TEST <- rep(1, N_TEST)
 
 # output parameters
 JOBNAME <- "base_n100p10"
-OUTPUT_DIR <- here::here("data/simulation_output/")
+OUTPUT_DIR <- here::here("data/simulation_output/") # <- change this for sherlock
 
 
 #####################################
 #         Run simulation            #
 #####################################
-# set RUN_SIMULATION to FALSE if already have simulation results.
+# Set RUN_SIMULATION to FALSE if already have simulation results,
+# and instead load the simulation results.
+# When a < b for MSE estimation, you will get NaN,
+# make NSIM larger to get desired NSIM as NaN will be discarded.
 
 if (RUN_SIMULATION) {
   
   registerDoMC(cores = MC_CORES)
   set.seed(SIMULATION_SEED)
-  #start.time <- Sys.time()
+  start.time <- Sys.time()
   
   # simulate train data (build confidence intervals)
   data_train <- simulate_data_base_case_nsim(nsim=N_SIM,
@@ -78,6 +81,7 @@ if (RUN_SIMULATION) {
   
   # save result
   save(simulation_result, file=paste0(OUTPUT_DIR,JOBNAME,".RData"))
+  print(paste0("Saved simulation result: ",OUTPUT_DIR,JOBNAME,".RData"))
 
 } else {
   
@@ -108,7 +112,7 @@ ci_ncv <- confidence_interval_cv(err_cv=df_result["err_ncv"],
                                 alpha=ALPHA,
                                 nsim=n_sim,
                                 N_FOLDS
-)
+                                )
 
 miscoverage_cv <- check_miscoverage(ci_cv, err_test)
 miscoverage_ncv <- check_miscoverage(ci_ncv, err_test) 
