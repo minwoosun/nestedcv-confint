@@ -4,6 +4,11 @@ library(here)
 source(here::here("R/ncv.R"))
 source(here::here("R/simulation.R"))
 
+
+#####################################
+#           Parameters              #
+#####################################
+
 # simulation parameters
 RUN_SIMULATION <- TRUE
 SIMULATION_SEED <- 123
@@ -21,9 +26,9 @@ JOBNAME <- "colon"
 OUTPUT_DIR <- here::here("data/simulation_output/") # <- change this for sherlock
 
 
-############################
-# Load and preprocess data #
-############################
+#######################################
+#       Load and preprocess data      #
+#######################################
 data(cancer, package="survival")
 df <- colon
 

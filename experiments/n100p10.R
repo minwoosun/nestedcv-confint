@@ -4,6 +4,11 @@ library(here)
 source(here::here("R/ncv.R"))
 source(here::here("R/simulation.R"))
 
+
+#####################################
+#           Parameters              #
+#####################################
+
 # simulation parameters
 RUN_SIMULATION <- TRUE
 SIMULATION_SEED <- 123
