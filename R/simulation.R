@@ -1,3 +1,7 @@
+here::i_am("R/simulation.R")
+library(here)
+
+
 #' Use to generate simple simulated data.
 #' 
 #' @param n number of samples
@@ -60,7 +64,6 @@ check_snr <- function(data, n_sim){
 }
 
 
-
 #' #' Use to generate simulated data where the
 #' #' survival time follows a weibull distribution
 #' #' 
@@ -86,7 +89,6 @@ check_snr <- function(data, n_sim){
 #'   
 #'   return(list(x=x, y=y, snr=snr))
 #' }
-
 
 
 #' Use to sample without replacement from real data
@@ -128,7 +130,8 @@ simulation <- function(data_train, data_test, nsim, nreps=10, nfolds=10, alpha=0
                             nsim=nsim,
                             nreps=nreps,
                             nfolds=nfolds,
-                            mc.cores=mc.cores)
+                            mc.cores=mc.cores,
+                            compute.time=NA)
   
   # initialize outputs
   err_test = err_cv = err_ncv = sd_cv = sd_ncv = mse_ncv = rep(NA, nsim)
