@@ -1,4 +1,5 @@
 here::i_am("R/simulation.R")
+
 library(here)
 
 
@@ -94,13 +95,54 @@ check_snr <- function(data, n_sim){
 #' Use to sample without replacement from real data
 #' where we can't generate new data
 #'
-sample_data <- function(){
-
+#' @param data list of x and y
+#' @param ntrain number of samples in the train set
+split_train_test <- function(data, ntrain){
+  
+  x <- data[["x"]]
+  y <- data[["y"]]
+  
+  # random sample
+  index_train = sample(nrow(x), ntrain)
+  
+  # train-test split
+  x_train = x[index_train,]
+  y_train = y[index_train,]
+  x_test = x[-index_train,]
+  y_test = y[-index_train,]
+  
+  train <- list("x_train"=x_train, "y_train"=y_train)
+  test <- list("x_test"=x_test, "y_test"=y_test)
+  output <- list("train"=train, "test"=test)
+  
+  return(output)
 }
 
 
-split_train_test <- function(data, ntrain){
-
+#' Run split_train_test() nsim times for real data
+#' where we can't generate new data
+#'
+#' @param data list of x and y
+#' @param ntrain number of samples in the train set
+#' @param nsim number of simulations
+split_train_test_nsim_times <- function(data, ntrain, nsim){
+  
+  data_train <- list()
+  data_test <- list()
+  
+  for (i in 1:nsim){
+    
+    split_data <- split_train_test(data, ntrain)
+    x_train <- split_data[["train"]][["x_train"]]
+    y_train <- split_data[["train"]][["y_train"]]
+    x_test <- split_data[["test"]][["x_test"]]
+    y_test <- split_data[["test"]][["y_test"]]
+    
+    data_train[[i]] <- list("x"=x_train, "y"=y_train)
+    data_test[[i]] <- list("x"=x_test, "y"=y_test)
+  }
+  
+  return(list("train"=data_train, "test"=data_test))
 }
 
 
