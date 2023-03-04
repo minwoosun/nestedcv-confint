@@ -5,18 +5,18 @@ source(here::here("R/simulation.R"))
 
 # simulation parameters
 SIMULATION_SEED <- 123
-N_SIM=10
-N_REP=10
-N_TRAIN=100
-N_TEST=1000
-N_FOLDS=10
-P=10
-SIGMA=3
-BETA = c(rep(2, 4), rep(0, P-4))
-STATUS_TRAIN = rep(1, N_TRAIN)
-STATUS_TEST = rep(1, N_TEST)
-ALPHA = 0.10
-MC_CORES = 1
+N_SIM <- 50
+N_REP <- 100
+N_TRAIN <- 100
+N_TEST <- 1000
+N_FOLDS <- 10
+P <- 10
+SIGMA <- 3
+BETA <- c(rep(2, 4), rep(0, P-4))
+STATUS_TRAIN <- rep(1, N_TRAIN)
+STATUS_TEST <- rep(1, N_TEST)
+ALPHA <- 0.10
+MC_CORES <- 3
 # OUTPUT_DIR
 
 #####################################
@@ -78,6 +78,18 @@ ci_cv <- confidence_interval_cv(err_cv=df_result["err_cv"],
                                 N_FOLDS
                                 )
 
-miscoverage_cv <- check_miscoverage(df_ci, err_test)
+ci_ncv <- confidence_interval_cv(err_cv=df_result["err_ncv"],
+                                sd_cv=df_result["sd_ncv"],
+                                alpha=ALPHA,
+                                nsim=n_sim,
+                                N_FOLDS
+)
+
+miscoverage_cv <- check_miscoverage(ci_cv, err_test)   # regular conf int shouldn't get this bad cov....
+#err_test > ci_cv ["up"]
+miscoverage_cnv <- check_miscoverage(ci_ncv, err_test) 
+
+# will be NAs, have to repeat until reach desired nsim (eg. 100)
+# (ran 50 iterations, only 31 not na)
 
 # nested CV confidence intervals

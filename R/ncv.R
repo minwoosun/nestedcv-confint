@@ -11,7 +11,7 @@ library(doMC)
 #' @param y target variable
 #' @param lamhat 
 #' @param nfolds number of folds for cross-validation
-ncv_single = function(x, y, lamhat, nfolds=10, verbose=FALSE){
+ncv_single <- function(x, y, lamhat, nfolds=10, verbose=FALSE){
   
   # initialize output vectors
   errin = errout = errout.var = rep(NA, nfolds)
@@ -92,7 +92,7 @@ ncv_single = function(x, y, lamhat, nfolds=10, verbose=FALSE){
 #' @param nfolds number of folds for cross-validation
 #' @param nreps number of repetitions (randomly sample x, y and run ncv)
 #' @param mc.cores number of cores to use for parallel compute
-ncv_repeated = function(x, y, lamhat, nfolds = 10, nreps = 5, mc.cores, verbose=FALSE){
+ncv_repeated <- function(x, y, lamhat, nfolds = 10, nreps = 5, mc.cores, verbose=FALSE){
   
   # run ncv in parallel (nreps times)
   ncv_output <- parallel::mclapply(1:nreps, 
