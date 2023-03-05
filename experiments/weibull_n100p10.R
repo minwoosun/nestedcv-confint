@@ -12,17 +12,16 @@ source(here::here("R/simulation.R"))
 # simulation parameters
 RUN_SIMULATION <- TRUE
 SIMULATION_SEED <- 123
-N_SIM <- 3
+N_SIM <- 10
 ALPHA <- 0.10
-MC_CORES <- 1
+MC_CORES <- 3
 
 # simulation data & ncv parameters
-N_REP <- 10
+N_REP <- 100
 N_TRAIN <- 100
 N_TEST <- 1000
 N_FOLDS <- 10
 P <- 10
-SIGMA <- 3
 BETA <- c(rep(2, 4), rep(0, P-4))
 LAMBDA <- 0.01
 RATEC <- 0.001
@@ -105,14 +104,14 @@ ci_cv <- confidence_interval_cv(err_cv=df_result["err_cv"],
                                 alpha=ALPHA,
                                 nsim=n_sim,
                                 N_FOLDS
-)
+                                )
 
 ci_ncv <- confidence_interval_cv(err_cv=df_result["err_ncv"],
                                  sd_cv=df_result["sd_ncv"],
                                  alpha=ALPHA,
                                  nsim=n_sim,
                                  N_FOLDS
-)
+                                 )
 
 miscoverage_cv <- check_miscoverage(ci_cv, err_test)
 miscoverage_ncv <- check_miscoverage(ci_ncv, err_test) 
