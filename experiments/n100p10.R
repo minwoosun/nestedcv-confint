@@ -12,7 +12,7 @@ source(here::here("R/simulation.R"))
 # simulation parameters
 RUN_SIMULATION <- TRUE
 SIMULATION_SEED <- 123
-N_SIM <- 3
+N_SIM <- 20
 ALPHA <- 0.10
 MC_CORES <- 3
 
@@ -85,8 +85,8 @@ if (RUN_SIMULATION) {
   simulation_result$simulation_params$compute.time <- compute.time
   
   # save result
-  save(simulation_result, file=paste0(OUTPUT_DIR,JOBNAME,".RData"))
-  print(paste0("Saved simulation result: ",OUTPUT_DIR,JOBNAME,".RData"))
+  #save(simulation_result, file=paste0(OUTPUT_DIR,JOBNAME,".RData"))
+  #print(paste0("Saved simulation result: ",OUTPUT_DIR,JOBNAME,".RData"))
 
 } else {
   
@@ -104,28 +104,26 @@ err_test <- df_result[["err_test"]]
 n_sim <- nrow(df_result)
 
 # standard CV confidence intervals
-ci_cv <- confidence_interval_cv(err_cv=df_result["err_cv"],
-                                sd_cv=df_result["sd_cv"],
-                                alpha=ALPHA,
-                                nsim=n_sim,
-                                N_FOLDS
-                                )
-
-ci_ncv <- confidence_interval_cv(err_cv=df_result["err_ncv"],
-                                sd_cv=df_result["sd_ncv"],
-                                alpha=ALPHA,
-                                nsim=n_sim,
-                                N_FOLDS
-                                )
-
-ci_cv2 <- confidence_interval_cv2(err_cv=df_result["err_cv"],
+ci_cv1 <- confidence_interval_cv1(err_cv=df_result["err_cv"],
                                  sd_cv=df_result["sd_cv"],
-                                 alpha=ALPHA,
-                                 nsim=n_sim,
-                                 N_FOLDS
+                                 alpha=ALPHA
                                  )
 
-miscoverage_cv <- check_miscoverage(ci_cv2, err_test)
+ci_cv2 <- confidence_interval_cv2(err_cv=df_result["err_cv"],
+                                  sd_cv=df_result["sd_cv"],
+                                  alpha=ALPHA
+                                  )
+
+ci_ncv <- confidence_interval_ncv(err_cv=df_result["err_cv"],
+                                  err_ncv=df_result["err_ncv"],
+                                  sd_ncv=df_result["sd_ncv"],
+                                  alpha=ALPHA,
+                                  nfolds=N_FOLDS,
+                                  bias=FALSE
+                                  )
+
+miscoverage_cv1 <- check_miscoverage(ci_cv1, err_test)
+miscoverage_cv2 <- check_miscoverage(ci_cv2, err_test)
 miscoverage_ncv <- check_miscoverage(ci_ncv, err_test) 
 # err_test > ci_cv ["up"]
 

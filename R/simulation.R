@@ -426,31 +426,62 @@ create_result_dataframe <- function(result, na.rm){
 }
 
 
+#' Estimate of bias for err_ncv
+#' 
+#' @param err_cv
+#' @param err_ncv
+#' @param nfolds number of folds
+biashat <- function(err_cv, err_ncv, nfolds){
+  inflation_factor <- 1 + ((nfolds - 2)/nfolds)
+  bias <- inflation_factor * (err_ncv - err_cv)
+  return(bias)
+}
+
+
 #' Compute confidence intervals for standard cross-validation output
 #' 
 #' @param err_cv
 #' @param sd_cv
 #' @param alpha desired miscoverage (1-alpha is desired conf int)
-#' @param nsim
-#' @param nfold number of folds
-#' @param na.rm TRUE remove rows with NaN
-confidence_interval_cv1 <- function(err_cv, sd_cv, alpha, nsim, nfold){
+confidence_interval_cv1 <- function(err_cv, sd_cv, alpha){
   z <- qnorm(1-alpha/2)
   df <- data.frame(cbind(err_cv-z*sd_cv, err_cv+z*sd_cv))
   colnames(df) <- c("lo", "up")
   return(df)
 }
 
-confidence_interval_cv2 <- function(err_cv, sd_cv, alpha, nsim, nfold){
+
+#' Compute confidence intervals for standard cross-validation output
+#' 
+#' @param err_cv
+#' @param sd_cv
+#' @param alpha desired miscoverage (1-alpha is desired conf int)
+confidence_interval_cv2 <- function(err_cv, sd_cv, alpha){
+  n <- length(err_cv)
   z <- qnorm(1-alpha/2)
-  df <- data.frame(cbind(err_cv-z*(sd_cv/sqrt(nsim)), err_cv+z*(sd_cv/sqrt(nsim))))
+  df <- data.frame(cbind(err_cv-z*(sd_cv/sqrt(n)), err_cv+z*(sd_cv/sqrt(n))))
   colnames(df) <- c("lo", "up")
   return(df)
 }
 
-confidence_interval_ncv <- function(err_cv, sd_ncv, alpha, nsim, nfold, bias){
+
+#' Compute confidence intervals for nested cross-validation output
+#' 
+#' @param err_cv
+#' @param sd_cv
+#' @param alpha desired miscoverage (1-alpha is desired conf int)
+#' @param nfolds number of folds
+#' @param bias TRUE to include bias correction
+confidence_interval_ncv <- function(err_cv, err_ncv, sd_ncv, alpha, nfolds, bias=FALSE){
+  
+  if (bias){
+    bias_ <- biashat(err_cv, err_ncv, nfolds=nfolds) 
+  } else {
+    bias_ <- rep(0, length(err_cv))
+  }
+  
   z <- qnorm(1-alpha/2)
-  df <- data.frame(cbind(err_cv-bias-(z*sd_ncv), err_cv-bias+(z*sd_ncv)))
+  df <- data.frame(cbind(err_cv-bias_-(z*sd_ncv), err_cv-bias_+(z*sd_ncv)))
   colnames(df) <- c("lo", "up")
   return(df)
 }
