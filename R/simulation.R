@@ -1,6 +1,12 @@
 here::i_am("R/simulation.R")
 
 library(here)
+source(here::here("R/ncv.R"))
+
+
+####################################################################
+#                    Data generating functions                     #
+####################################################################
 
 
 #' Use to generate simple simulated data.
@@ -65,31 +71,174 @@ check_snr <- function(data, n_sim){
 }
 
 
-#' #' Use to generate simulated data where the
-#' #' survival time follows a weibull distribution
-#' #' 
-#' #' source: https://stats.stackexchange.com/questions/135124/
-#' #' how-to-create-a-toy-survival-time-to-event-data-with-right-censoring
-#' #' 
-#' #' @param n number of samples
-#' #' @param p number of features
-#' #' @param sigma strength of noise
-#' #' @param beta vector of strength of covariate relationship with 
-#' simulate_data_weibull <- function(n, p, sigma, beta, status){
-#'   
-#'   # sample features from gaussian
-#'   x <- matrix(rnorm(n*p),n,p)
-#'   
-#'   # time linear relationship with features
-#'   time <- as.vector(x %*% beta + sigma * rnorm(n))
-#'   time <- time - min(time) + 1
-#'   y <- cbind(time = time, status = status)
-#'   
-#'   # compute signal to noise ratio
-#'   snr <- var(x %*% beta) / var(time - x %*% beta)
-#'   
-#'   return(list(x=x, y=y, snr=snr))
-#' }
+#' Use to generate simulated data where the survival time follows a exponential
+#' distribution and the features are sample from gaussian.
+#'
+#' @param n number of samples
+#' @param p number of features
+#' @param beta vector of strength of covariate relationship with time
+#' @param lambda scale parameter for exponential distribution
+#' @param rateC rate parameter for Exponential distribution (use for censor)
+#' e.g. simulate_data_exponential(n=100, p=10, beta=c(2,2,rep(0,8)), 
+#'                                         lambda=0.01, rateC=0.001)   
+simulate_data_exponential <- function(n, p, beta, lambda, rateC){
+  
+  # sample features from gaussian
+  x <- matrix(rnorm(n*p),n,p)
+  
+  # sample survival time from weibull
+  u <- runif(n)
+  time <- -log(u) / (lambda * exp(x %*% beta))
+  
+  # incorporate censoring
+  C <- rexp(n, rateC)
+  time <- pmin(time, C)
+  status <- as.numeric(time < C)
+  
+  y <- cbind(time = time, status = status)
+  colnames(y) <- c("time", "status")
+  
+  return(list(x=x, y=y))
+}
+
+
+#' Use to generate simulated data where the survival time follows a weibull 
+#' distribution and the features are binary.
+#'
+#' @param n number of samples
+#' @param p number of features
+#' @param beta vector of strength of covariate relationship with time
+#' @param lambda scale parameter for Weibull distribution
+#' @param rho shape parameter for Weibull distribution
+#' @param rateC rate parameter for Exponential distriubtion (use for censor)
+#' e.g. simulate_data_weibull(n=100, p=10, beta=c(2,2,rep(0,8)), 
+#'                                         lambda=0.01, rho=0.5, rateC=0.001)   
+simulate_data_weibull <- function(n, p, beta, lambda, rho, rateC){
+  
+  # sample p features by n bernoulli trials p times
+  x <- matrix(NA, nrow=n, ncol=p)
+  
+  for (j in 1:p){
+    x[,j] <- sample(x=c(0, 1), size=n, replace=TRUE, prob=c(0.5, 0.5))
+  }
+  
+  # sample survival time from weibull
+  u <- runif(n)
+  time <- (-log(u) / (lambda * exp(x %*% beta)))^(1/rho)
+  
+  # incorporate censoring
+  C <- rexp(n, rateC)
+  time <- pmin(time, C)
+  status <- as.numeric(time < C)
+  
+  y <- cbind(time = time, status = status)
+  colnames(y) <- c("time", "status")
+  
+  return(list(x=x, y=y))
+}
+
+
+#' Use to generate simulated data where the survival time follows a Gompertz
+#' distribution and the features are from gaussian.
+#'
+#' @param n number of samples
+#' @param p number of features
+#' @param beta vector of strength of covariate relationship with time
+#' @param lambda scale parameter for Gompertz distribution
+#' @param alpha shape parameter for Gompertz distribution
+#' @param rateC rate parameter for Exponential distriubtion (use for censor)
+#' e.g. simulate_data_gompertz(n=100, p=10, beta=c(2,2,rep(0,8)), 
+#'                                         lambda=0.01, alpha=0.0001, rateC=0.001)   
+simulate_data_gompertz <- function(n, p, beta, lambda, alpha, rateC){
+  
+  # sample features from gaussian
+  x <- matrix(rnorm(n*p),n,p)
+  
+  # sample survival time from weibull
+  u <- runif(n)
+  time <- (1/alpha) * log(1 - (alpha * log(u)) / (lambda * exp(x %*% beta)))
+  
+  # incorporate censoring
+  C <- rexp(n, rateC)
+  time <- pmin(time, C)
+  status <- as.numeric(time < C)
+  
+  y <- cbind(time = time, status = status)
+  colnames(y) <- c("time", "status")
+  
+  return(list(x=x, y=y))
+}
+
+
+#' Use to generate simulated data where the survival time follows a exponential
+#' distribution and the features are from gaussian NSIM times
+#'
+#' @param nsim number of simulations (i.e. repeat generating data)
+#' @param n number of samples
+#' @param p number of features
+#' @param beta vector of strength of covariate relationship with time
+#' @param lambda scale parameter for exponential distribution
+#' @param rateC rate parameter for Exponential distriubtion (use for censor)
+#' e.g. simulate_data_weibull_nsim_times(3, n=100, p=10, beta=c(2,2,rep(0,8)),  
+#'                                        lambda=0.01, rho=0.5, rateC=0.001)
+simulate_data_exponential_nsim_times <- function(nsim, n, p, beta, lambda, rateC){
+  
+  simulated_data <- list()
+  
+  for (i in 1:nsim){
+    simulated_data[[i]] <- simulate_data_exponential(n, p, beta, lambda, rateC)
+  }
+  
+  return(simulated_data) 
+}
+
+
+#' Use to generate simulated data where the survival time follows a weibull 
+#' distribution and the features are binary NSIM times
+#'
+#' @param nsim number of simulations (i.e. repeat generating data)
+#' @param n number of samples
+#' @param p number of features
+#' @param beta vector of strength of covariate relationship with time
+#' @param lambda scale parameter for Weibull distribution
+#' @param rho shape parameter for Weibull distribution
+#' @param rateC rate parameter for Exponential distriubtion (use for censor)
+#' e.g. simulate_data_weibull_nsim_times(3, n=100, p=10, beta=c(2,2,rep(0,8)),  
+#'                                            lambda=0.01, rho=0.5, rateC=0.001)
+simulate_data_weibull_nsim_times <- function(nsim, n, p, beta, lambda, rho, rateC){
+  
+  simulated_data <- list()
+  
+  for (i in 1:nsim){
+    simulated_data[[i]] <- simulate_data_weibull(n, p, beta, lambda, rho, rateC)
+  }
+  
+  return(simulated_data) 
+}
+
+
+#' Use to generate simulated data where the survival time follows a Gompertz
+#' distribution and the features are from gaussian nsim times
+#'
+#' @param nsim number of simulations (i.e. repeat generating data)
+#' @param n number of samples
+#' @param p number of features
+#' @param beta vector of strength of covariate relationship with time
+#' @param lambda scale parameter for Gompertz distribution
+#' @param alpha shape parameter for Gompertz distribution
+#' @param rateC rate parameter for Exponential distriubtion (use for censor)
+#' e.g. simulate_data_gompertz(n=100, p=10, beta=c(2,2,rep(0,8)), 
+#'                                         lambda=0.01, alpha=0.0001, rateC=0.001)   
+simulate_data_gompertz <- function(nsim, n, p, beta, lambda, alpha, rateC){
+  
+  simulated_data <- list()
+  
+  for (i in 1:nsim){
+    simulated_data[[i]] <- simulate_data_gompertz(n, p, beta, lambda, alpha, rateC)
+  }
+  
+  return(simulated_data) 
+}
 
 
 #' Use to sample without replacement from real data
@@ -144,6 +293,11 @@ split_train_test_nsim_times <- function(data, ntrain, nsim){
   
   return(list("train"=data_train, "test"=data_test))
 }
+
+
+##########################################################
+#                Simulation functions                    #
+##########################################################
 
 
 #' Simulates running vanilla cross-validation and
@@ -201,7 +355,7 @@ simulation <- function(data_train, data_test, nsim, nreps=10, nfolds=10, alpha=0
                        foldid=fold_id,
                        type.measure="C",
                        keep=T
-                       )
+    )
     
     err_cv[ii] <- max(outcv$cvm)
     sd_cv[ii] <- outcv$cvsd[which.max(outcv$cvm)]
@@ -222,8 +376,8 @@ simulation <- function(data_train, data_test, nsim, nreps=10, nfolds=10, alpha=0
                            nreps=nreps,
                            nfolds=nfolds, 
                            mc.cores=mc.cores
-                           )
-
+    )
+    
     # compute MSE estimate
     mse_a <- mean((outncv$errin - outncv$errout)^2)
     mse_b <- mean(outncv$errout.var)
@@ -300,4 +454,3 @@ check_miscoverage <- function(confidence_intervals, test_err){
   
   return(miscoverage)
 }
-
