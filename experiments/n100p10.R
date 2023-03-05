@@ -92,7 +92,6 @@ if (RUN_SIMULATION) {
   
   # load result
   load(file=paste0(OUTPUT_DIR,JOBNAME,".RData"))
-  
 }
 
 
@@ -119,7 +118,14 @@ ci_ncv <- confidence_interval_cv(err_cv=df_result["err_ncv"],
                                 N_FOLDS
                                 )
 
-miscoverage_cv <- check_miscoverage(ci_cv, err_test)
+ci_cv2 <- confidence_interval_cv2(err_cv=df_result["err_cv"],
+                                 sd_cv=df_result["sd_cv"],
+                                 alpha=ALPHA,
+                                 nsim=n_sim,
+                                 N_FOLDS
+                                 )
+
+miscoverage_cv <- check_miscoverage(ci_cv2, err_test)
 miscoverage_ncv <- check_miscoverage(ci_ncv, err_test) 
 # err_test > ci_cv ["up"]
 

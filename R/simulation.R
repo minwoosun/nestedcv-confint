@@ -434,9 +434,23 @@ create_result_dataframe <- function(result, na.rm){
 #' @param nsim
 #' @param nfold number of folds
 #' @param na.rm TRUE remove rows with NaN
-confidence_interval_cv <- function(err_cv, sd_cv, alpha, nsim, nfold){
+confidence_interval_cv1 <- function(err_cv, sd_cv, alpha, nsim, nfold){
   z <- qnorm(1-alpha/2)
   df <- data.frame(cbind(err_cv-z*sd_cv, err_cv+z*sd_cv))
+  colnames(df) <- c("lo", "up")
+  return(df)
+}
+
+confidence_interval_cv2 <- function(err_cv, sd_cv, alpha, nsim, nfold){
+  z <- qnorm(1-alpha/2)
+  df <- data.frame(cbind(err_cv-z*(sd_cv/sqrt(nsim)), err_cv+z*(sd_cv/sqrt(nsim))))
+  colnames(df) <- c("lo", "up")
+  return(df)
+}
+
+confidence_interval_ncv <- function(err_cv, sd_ncv, alpha, nsim, nfold, bias){
+  z <- qnorm(1-alpha/2)
+  df <- data.frame(cbind(err_cv-bias-(z*sd_ncv), err_cv-bias+(z*sd_ncv)))
   colnames(df) <- c("lo", "up")
   return(df)
 }
