@@ -229,7 +229,7 @@ simulate_data_weibull_nsim_times <- function(nsim, n, p, beta, lambda, rho, rate
 #' @param rateC rate parameter for Exponential distriubtion (use for censor)
 #' e.g. simulate_data_gompertz(n=100, p=10, beta=c(2,2,rep(0,8)), 
 #'                                         lambda=0.01, alpha=0.0001, rateC=0.001)   
-simulate_data_gompertz <- function(nsim, n, p, beta, lambda, alpha, rateC){
+simulate_data_gompertz_nsim_times <- function(nsim, n, p, beta, lambda, alpha, rateC){
   
   simulated_data <- list()
   
