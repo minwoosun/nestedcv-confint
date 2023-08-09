@@ -1,0 +1,301 @@
+---
+title: "experiments_analysis"
+author: "Min Woo Sun"
+date: "12/18/2021"
+output: html_document
+---
+
+```{r}
+summary.result = function(result, na.rm=T){
+  
+  err = result[[1]]
+  errcv = result[[2]]
+  sd = result[[3]]
+  sd.ncv = result[[4]]
+  outncv = result[[5]]
+  sd.ncva = result[[6]]
+  sd.ncvb = result[[7]]
+  params = result[[8]]
+  
+  n = params[[2]]
+  p = params[[3]]
+  alpha = params[[4]]
+  ntest = params[[5]]
+  beta = params[[6]]
+  sigma = params[[7]]
+  nsim = nsim.total = params[[8]]
+  nreps = params[[9]]
+  nfolds = params[[10]]
+  
+  names = c('miscovL', 'miscovU', 'meanL', 'meanU', 
+            'meanSE', 'meanMSEa', 'meanMSEb')
+  ci.results = matrix(NA, nrow=3,ncol=7)
+  
+  if(na.rm==T){
+    err = err[!is.na(result[[4]])]
+    errcv = errcv[!is.na(result[[4]])]
+    sd = sd[!is.na(result[[4]])]
+    sd.ncv = sd.ncv[!is.na(result[[4]])]
+    sd.ncva = sd.ncva[!is.na(result[[4]])]
+    sd.ncvb =  sd.ncvb[!is.na(result[[4]])]
+    nsim=length(sd)
+  }
+  
+
+  
+  # naive CV confidence intervals
+  ci=cbind(errcv-qnorm(1-alpha/2)*sd, errcv+qnorm(1-alpha/2)*sd)
+  ci.results[1,c(1,2)] = c(mean(err<ci[,1]),mean(err>ci[,2]))
+  ci.results[1,c(3,4)] = colMeans(ci)
+  ci.results[1,5] = mean(sd)
+  ci.results[1,6] = NA
+  ci.results[1,7] = NA
+  
+  
+  # unravel nested CV point estimates
+  errncv.in=matrix(NA,nsim,nreps*nfolds)
+  errcv0=rep(NA,nsim)
+  for(ii in 1:nsim){ 
+    errncv.in[ii,]=outncv[[ii]]$errin # errin
+    errcv0[ii]=mean(outncv[[ii]]$errcv0) # errout
+  }
+  
+  # NCV point estimate
+  errncv=rowMeans(errncv.in)
+  
+  # compute bias 
+  bias = errncv-err
+  biashat=((1+((nfolds-2)/nfolds)))*(errncv-errcv0)
+  #biashat = errncv-errcv0
+  #biashat=(errncv-errcv)
+  mean(bias)
+  mean(biashat)
+
+  
+
+  # nested CV (no bias correction)
+  if (na.rm == F){
+      sd.ncv.nona=sd.ncv
+      sd.ncv.nona[is.na(sd.ncv)]=sd[is.na(sd.ncv)]
+      sd.ncv = sd.ncv.nona
+  }
+  
+  ci2=cbind(errncv-qnorm(1-alpha/2)*sd.ncv, errncv+qnorm(1-alpha/2)*sd.ncv)
+  ci.results[2,c(1,2)] = c(mean(err<ci2[,1]),mean(err>ci2[,2]))
+  ci.results[2,c(3,4)] = colMeans(ci2)
+  ci.results[2,5] = mean(sd.ncv)
+  ci.results[2,6] = mean(sd.ncva)
+  ci.results[2,7] = mean(sd.ncvb)
+  
+  
+ # biashat = errcv-err
+  # nested CV (with bias correction)
+  #ci3=cbind(errncv-biashat-qnorm(1-alpha/2)*sd.ncv, errncv-biashat+qnorm(1-alpha/2)*sd.ncv)
+  ci3=cbind(errncv-biashat-qnorm(1-alpha/2)*sqrt(4/5)*sd.ncv, errncv-biashat+qnorm(1-alpha/2)*sqrt(4/5)*sd.ncv)
+  ci.results[3,c(1,2)] = c(mean(err<ci3[,1]),mean(err>ci3[,2]))
+  ci.results[3,c(3,4)] = colMeans(ci3)
+  ci.results[3,5] = mean(sd.ncv)
+  ci.results[3,6] = mean(sd.ncva)
+  ci.results[3,7] = mean(sd.ncvb)
+  
+  
+  #  convert to dataframe
+  ci.results.df = data.frame(ci.results)
+  
+  
+  # first column point estimate
+  point = c(mean(errcv), mean(errncv), mean(errncv-biashat))
+  ci.results.df = data.frame(cbind(point,ci.results.df))
+  colnames(ci.results.df) = c("meanPointEst",names)
+  
+  
+  # summarize NCV NA sqrt(MSE)
+  count_na = sum(is.na(result_base[[4]]))
+  prop_na = count_na / nsim.total
+  print(paste0("Sample size: ", n))
+  print(paste0("Mean bias: ",mean(bias)))
+  print(paste0("Mean bias-hat: ",mean(biashat)))
+  print(paste0("Count of NA ncv sd: ",count_na))
+  print(paste0("Proportion of NA ncv sd: ",prop_na))
+  print(paste0("Mean ERR: ",mean(err)))
+    
+  return(ci.results.df)
+}
+
+
+```
+
+
+
+
+BIAS CORR
+```{r}
+# summary.result.bias = function(result, na.rm=T){
+#   
+#   err = result[[1]]
+#   errcv = result[[2]]
+#   sd = result[[3]]
+#   sd.ncv = result[[4]]
+#   outncv = result[[5]]
+#   sd.ncva = result[[6]]
+#   sd.ncvb = result[[7]]
+#   bias_errcv0 = result[[8]]
+#   params = result[[9]]
+#   
+#   n = params[[2]]
+#   p = params[[3]]
+#   alpha = params[[4]]
+#   ntest = params[[5]]
+#   beta = params[[6]]
+#   sigma = params[[7]]
+#   nsim = nsim.total = params[[8]]
+#   nreps = params[[9]]
+#   nfolds = params[[10]]
+#   
+#   names = c('miscovL', 'miscovU', 'meanL', 'meanU', 
+#             'meanSE', 'meanMSEa', 'meanMSEb')
+#   ci.results = matrix(NA, nrow=3,ncol=7)
+#   
+#   if(na.rm==T){
+#     err = err[!is.na(result[[4]])]
+#     errcv = errcv[!is.na(result[[4]])]
+#     sd = sd[!is.na(result[[4]])]
+#     sd.ncv = sd.ncv[!is.na(result[[4]])]
+#     sd.ncva = sd.ncva[!is.na(result[[4]])]
+#     sd.ncvb =  sd.ncvb[!is.na(result[[4]])]
+#     nsim=length(sd)
+#   }
+#   
+# 
+#   
+#   # naive CV confidence intervals
+#   ci=cbind(errcv-qnorm(1-alpha/2)*sd, errcv+qnorm(1-alpha/2)*sd)
+#   ci.results[1,c(1,2)] = c(mean(err<ci[,1]),mean(err>ci[,2]))
+#   ci.results[1,c(3,4)] = colMeans(ci)
+#   ci.results[1,5] = mean(sd)
+#   ci.results[1,6] = NA
+#   ci.results[1,7] = NA
+#   
+#   
+#   # unravel nested CV point estimates
+#   errncv.in=matrix(NA,nsim,nreps*nfolds)
+#   errcv0=rep(NA,nsim)
+#   for(ii in 1:nsim){ 
+#     errncv.in[ii,]=outncv[[ii]]$errin # errin
+#     errcv0[ii]=mean(outncv[[ii]]$errcv0) # errout
+#   }
+#   
+#   # NCV point estimate
+#   errncv=rowMeans(errncv.in)
+#   
+#   # compute bias 
+#   bias = errncv-err
+#   print(bias)
+#   print(bias_errcv0[101:length(bias_errcv0)])
+#   biashat=((1+((nfolds-2)/nfolds)))*(errncv-bias_errcv0[101:length(bias_errcv0)])
+#   #biashat = errncv-errcv0
+#   #biashat=(errncv-errcv)
+#   mean(bias)
+#   mean(biashat)
+# 
+#   
+# 
+#   # nested CV (no bias correction)
+#   if (na.rm == F){
+#       sd.ncv.nona=sd.ncv
+#       sd.ncv.nona[is.na(sd.ncv)]=sd[is.na(sd.ncv)]
+#       sd.ncv = sd.ncv.nona
+#   }
+#   
+#   ci2=cbind(errncv-qnorm(1-alpha/2)*sd.ncv, errncv+qnorm(1-alpha/2)*sd.ncv)
+#   ci.results[2,c(1,2)] = c(mean(err<ci2[,1]),mean(err>ci2[,2]))
+#   ci.results[2,c(3,4)] = colMeans(ci2)
+#   ci.results[2,5] = mean(sd.ncv)
+#   ci.results[2,6] = mean(sd.ncva)
+#   ci.results[2,7] = mean(sd.ncvb)
+#   
+#   
+#  # biashat = errcv-err
+#   # nested CV (with bias correction)
+#  # ci3=cbind(errncv-biashat-qnorm(1-alpha/2)*sd.ncv, errncv-biashat+qnorm(1-alpha/2)*()*sd.ncv)
+#   ci3=cbind(errncv-biashat-qnorm(1-alpha/2)*sd.ncv, errncv-biashat+qnorm(1-alpha/2)*sd.ncv)
+#   ci.results[3,c(1,2)] = c(mean(err<ci3[,1]),mean(err>ci3[,2]))
+#   ci.results[3,c(3,4)] = colMeans(ci3)
+#   ci.results[3,5] = mean(sd.ncv)
+#   ci.results[3,6] = mean(sd.ncva)
+#   ci.results[3,7] = mean(sd.ncvb)
+#   
+#   
+#   #  convert to dataframe
+#   ci.results.df = data.frame(ci.results)
+#   
+#   
+#   # first column point estimate
+#   point = c(mean(errcv), mean(errncv), mean(errncv-biashat))
+#   ci.results.df = data.frame(cbind(point,ci.results.df))
+#   colnames(ci.results.df) = c("meanPointEst",names)
+#   
+#   
+#   # summarize NCV NA sqrt(MSE)
+#   count_na = sum(is.na(result_base[[4]]))
+#   prop_na = count_na / nsim.total
+#   print(paste0("Sample size: ", n))
+#   print(paste0("Mean bias: ",mean(bias)))
+#   print(paste0("Mean bias-hat: ",mean(biashat)))
+#   print(paste0("Count of NA ncv sd: ",count_na))
+#   print(paste0("Proportion of NA ncv sd: ",prop_na))
+#   print(paste0("Mean ERR: ",mean(err)))
+#     
+#   return(ci.results.df)
+# }
+
+```
+
+
+Sample size comparison (all else constant); using sqrt(abs(MSE))
+```{r}
+
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn/pgtn_n30p80.RData")
+summary.result(result_base, na.rm=F)
+
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn/pgtn_n30p80_2.RData")
+summary.result(result_base, na.rm=F)
+
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn/pgtn_n100p120.RData")
+summary.result(result_base, na.rm=F)
+
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn/pgtn_n100p120_2.RData")
+summary.result(result_base, na.rm=F)
+```
+
+pgtn_n200p250 (sim 100), but 20% bad, bias correction doesn't help...
+```{r}
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn/pgtn_n200p250_2.RData")
+summary.result(result_base, na.rm=F)
+```
+
+
+pgtn with bias correction separate / high rep
+```{r}
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn_biasfix2.RData")
+summary.result.bias(result_base, na.rm=F)
+```
+
+
+pgtn with bias correction n=100,p=150, nsim-100, nrep=200, fold=5, no NaN intervals
+```{r}
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn_biasfix_fold5.RData")
+summary.result(result_base, na.rm=F)
+```
+
+# 10 fold, nrep 200, n-100, p=150, sigma=10
+```{r}
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn_biasfix_n100p150_nrep200_sigma10.RData")
+summary.result(result_base, na.rm=F)
+```
+# 10 fold, nrep 200, n-100, p=150, sigma=5
+```{r}
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/pgtn_biasfix_n100p150_nrep200_sigma5.RData")
+summary.result(result_base, na.rm=F)
+```
+

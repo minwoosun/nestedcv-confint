@@ -1,0 +1,137 @@
+---
+title: "experiments_analysis"
+author: "Min Woo Sun"
+date: "12/18/2021"
+output: html_document
+---
+
+```{r}
+library(here)
+
+summary.result = function(result, na.rm=T){
+  
+  err = result[[1]]
+  errcv = result[[2]]
+  sd = result[[3]]
+  sd.ncv = result[[4]]
+  outncv = result[[5]]
+  sd.ncva = result[[6]]
+  sd.ncvb = result[[7]]
+  params = result[[8]]
+  
+  ntrain = params[[3]]
+  alpha = params[[2]]
+  ntest = params[[4]]
+  nsim = nsim.total = params[[5]]
+  nreps = params[[6]]
+  nfolds = params[[7]]
+  
+  names = c('miscovL', 'miscovU', 'meanL', 'meanU', 
+            'meanSE', 'meanMSEa', 'meanMSEb')
+  ci.results = matrix(NA, nrow=3,ncol=7)
+  
+  if(na.rm==T){
+    err = err[!is.na(result[[4]])]
+    errcv = errcv[!is.na(result[[4]])]
+    sd = sd[!is.na(result[[4]])]
+    sd.ncv = sd.ncv[!is.na(result[[4]])]
+    sd.ncva = sd.ncva[!is.na(result[[4]])]
+    sd.ncvb =  sd.ncvb[!is.na(result[[4]])]
+    nsim=length(sd)
+  }
+  
+
+  
+  # naive CV confidence intervals
+  ci=cbind(errcv-qnorm(1-alpha/2)*sd, errcv+qnorm(1-alpha/2)*sd)
+  ci.results[1,c(1,2)] = c(mean(err<ci[,1]),mean(err>ci[,2]))
+  ci.results[1,c(3,4)] = colMeans(ci)
+  ci.results[1,5] = mean(sd)
+  ci.results[1,6] = NA
+  ci.results[1,7] = NA
+  
+  
+  # unravel nested CV point estimates
+  errncv.in=matrix(NA,nsim,nreps*nfolds)
+  errcv0=rep(NA,nsim)
+  for(ii in 1:nsim){ 
+    errncv.in[ii,]=outncv[[ii]]$errin # errin
+    errcv0[ii]=mean(outncv[[ii]]$errcv0) # errout
+  }
+  
+  # NCV point estimate
+  errncv=rowMeans(errncv.in)
+  
+  # compute bias 
+  bias = errncv-err
+  biashat=((1+((nfolds-2)/nfolds)))*(errncv-errcv0)
+  #biashat = errncv-errcv0
+  #biashat=(errncv-errcv)
+  mean(bias)
+  mean(biashat)
+
+  
+
+  # nested CV (no bias correction)
+  if (na.rm == F){
+      sd.ncv.nona=sd.ncv
+      sd.ncv.nona[is.na(sd.ncv)]=sd[is.na(sd.ncv)]
+      sd.ncv = sd.ncv.nona
+  }
+  
+  ci2=cbind(errncv-qnorm(1-alpha/2)*sd.ncv, errncv+qnorm(1-alpha/2)*sd.ncv)
+  ci.results[2,c(1,2)] = c(mean(err<ci2[,1]),mean(err>ci2[,2]))
+  ci.results[2,c(3,4)] = colMeans(ci2)
+  ci.results[2,5] = mean(sd.ncv)
+  ci.results[2,6] = mean(sd.ncva)
+  ci.results[2,7] = mean(sd.ncvb)
+  
+  
+ # biashat = errcv-err
+  # nested CV (with bias correction)
+  ci3=cbind(errncv-biashat-qnorm(1-alpha/2)*sd.ncv, errncv-biashat+qnorm(1-alpha/2)*sd.ncv)
+  ci.results[3,c(1,2)] = c(mean(err<ci3[,1]),mean(err>ci3[,2]))
+  ci.results[3,c(3,4)] = colMeans(ci3)
+  ci.results[3,5] = mean(sd.ncv)
+  ci.results[3,6] = mean(sd.ncva)
+  ci.results[3,7] = mean(sd.ncvb)
+  
+  
+  #  convert to dataframe
+  ci.results.df = data.frame(ci.results)
+  
+  
+  # first column point estimate
+  point = c(mean(errcv), mean(errncv), mean(errncv-biashat))
+  ci.results.df = data.frame(cbind(point,ci.results.df))
+  colnames(ci.results.df) = c("meanPointEst",names)
+  
+  
+  # summarize NCV NA sqrt(MSE)
+  count_na = sum(is.na(result[[4]]))
+  prop_na = count_na / nsim.total
+  print(paste0("Train sample size: ", ntrain))
+  print(paste0("Mean bias: ",mean(bias)))
+  print(paste0("Mean bias-hat: ",mean(biashat)))
+  print(paste0("Count of NA ncv sd: ",count_na))
+  print(paste0("Proportion of NA ncv sd: ",prop_na))
+  print(paste0("Mean ERR: ",mean(err)))
+    
+  return(ci.results.df)
+}
+
+
+```
+
+
+```{r}
+# load(here::here("data/colon.RData"))
+# load("~/Desktop/colon300.RData")
+load("~/Dropbox/min/ncv/min/debugging/output/experiments/colon3.RData")
+summary.result(exp_result, na.rm=T)
+```
+
+```{r}
+
+```
+

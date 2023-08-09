@@ -1,0 +1,11 @@
+name: nestedcv_r_env
+channels:
+  - conda-forge
+dependencies:
+  - r-base=4.1
+  - r-here
+  - r-glmnet
+  - r-survival
+  - r-dplyr
+  - r-groupdata2
+  - r-doMC
